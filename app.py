@@ -49,3 +49,72 @@ with st.sidebar:
         options=['全部品牌'] + sorted(df['品牌'].unique().tolist()),
         index=0
     )
+    
+    # 動態車型篩選
+    if selected_brand == '全部品牌':
+        model_options = ['全部車型'] + sorted(df['車型'].unique().tolist())
+    else:
+        model_options = ['全部車型'] + sorted(df[df['品牌'] == selected_brand]['車型'].unique().tolist())
+    
+    selected_model = st.selectbox(
+        "**步驟 2：選擇車型**",
+        options=model_options,
+        index=0
+    )
+    
+    st.markdown("---")
+    st.markdown("ℹ️ **操作說明**\n\n1. 先選擇品牌\n2. 再選擇車型\n3. 結果即時顯示")
+
+# 主畫面設計
+st.markdown("### 📊 車輛規格查詢結果")
+
+# 篩選邏輯
+if selected_brand == '全部品牌':
+    brand_filter = df['品牌'].notnull()
+else:
+    brand_filter = df['品牌'] == selected_brand
+
+if selected_model == '全部車型':
+    model_filter = df['車型'].notnull()
+else:
+    model_filter = df['車型'] == selected_model
+
+filtered_df = df[brand_filter & model_filter]
+
+# 顯示結果表格
+if not filtered_df.empty:
+    # 自訂表格樣式
+    st.dataframe(
+        filtered_df[["巧思分類", "車長(mm)", "車寬(mm)", "車高(mm)", "總價落點"]],
+        column_config={
+            "總價落點": st.column_config.TextColumn(
+                "鍍膜價格方案",
+                help="專業級鍍膜服務價格區間",
+                width="medium"
+            )
+        },
+        use_container_width=True,
+        height=400,
+        hide_index=True
+    )
+    
+    # 顯示統計卡片
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("符合車輛數", f"{len(filtered_df)} 台", help="符合當前篩選條件的車輛總數")
+    with col2:
+        avg_length = filtered_df['車長(mm)'].mean()
+        st.metric("平均車長", f"{avg_length:.1f} mm", help="符合條件車輛的平均長度")
+    with col3:
+        max_width = filtered_df['車寬(mm)'].max()
+        st.metric("最大車寬", f"{max_width} mm", delta_color="off", help="符合條件車輛的最大寬度")
+else:
+    st.warning("⚠️ 沒有找到符合條件的車輛，請調整篩選條件")
+
+# 底部說明
+st.markdown("---")
+st.markdown("""
+**欄位說明**  
+- **巧思分類**：車輛鍍膜難度分級 (A/B/C 級)  
+- **總價落點**：完整鍍膜服務價格區間 (含施工工時與材料費)
+""")
