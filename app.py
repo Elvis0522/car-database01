@@ -10,11 +10,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 自訂樣式
+# 自訂視覺化樣式
 st.markdown("""
 <style>
-    .special-brand {color: #2ecc71 !important; font-weight: 600;}
-    .price-detail {padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px; margin: 0.5rem 0;}
+    .selected-item {
+        color: #2ecc71;  /* 專業綠色 */
+        font-weight: 600;
+        padding: 0.3rem 1rem;
+        border-left: 4px solid #2ecc71;
+        margin: 0.5rem 0;
+    }
+    .total-price {
+        color: #e74c3c;
+        font-size: 28px;
+        font-weight: 700;
+        text-align: right;
+        margin-top: 2rem;
+        padding-right: 3rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -35,20 +48,19 @@ def load_pricing():
 df = load_data()
 pricing_df = load_pricing()
 
-# 特殊品牌排序處理
+# 品牌排序處理 (0-巧思業務用優先)
 all_brands = df['品牌'].unique().tolist()
-sorted_brands = ['0-巧思業務用'] + sorted([b for b in all_brands if b != '0-巧思業務用'])
+sorted_brands = ['所有品牌'] + ['0-巧思業務用'] + sorted([b for b in all_brands if b != '0-巧思業務用'])
 
 # 側邊欄設計
 with st.sidebar:
-    st.markdown("### 🚗 車輛篩選系統")
+    st.markdown("### 🚗 鍍膜車輛篩選系統")
     
     # 品牌選擇 (特殊排序)
     selected_brand = st.selectbox(
         "選擇品牌",
-        options=['所有品牌'] + sorted_brands,
-        format_func=lambda x: f"🌟 {x}" if x == '0-巧思業務用' else x,
-        index=0
+        options=sorted_brands,
+        index=1  # 預設選中「0-巧思業務用」
     )
     
     # 動態車型選項
@@ -60,7 +72,7 @@ with st.sidebar:
     selected_model = st.selectbox("選擇車型", models)
 
 # 主畫面
-st.markdown("### 📊 核心規格表")
+st.markdown("### 📊 車輛規格表")
 
 # 安全篩選邏輯
 brand_filter = df['品牌'] == selected_brand if selected_brand != '所有品牌' else df['品牌'].notnull()
@@ -72,41 +84,30 @@ if not filtered_df.empty:
     st.dataframe(
         filtered_df[['巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
         column_config={
-            "總價落點": st.column_config.TextColumn("參考價格區間", width="large")
+            "車長(mm)": st.column_config.NumberColumn(format="%d mm"),
+            "車寬(mm)": st.column_config.NumberColumn(format="%d mm"),
+            "車高(mm)": st.column_config.NumberColumn(format="%d mm"),
+            "總價落點": st.column_config.TextColumn("參考價格區間")
         },
-        height=250,
+        height=300,
         use_container_width=True,
         hide_index=True
     )
 else:
-    st.warning("無符合條件車輛")
+    st.warning("⚠️ 沒有找到符合條件的車輛")
 
-# 選配系統
+# --- 選配系統 (精簡版) ---
 if not filtered_df.empty and selected_model != '所有車型':
     try:
         car_class = filtered_df.iloc[0]['巧思分類']
         
         st.markdown("---")
-        st.markdown(f"### 🛠️ {car_class} 專屬選配系統")
+        st.markdown(f"### 🛠️ {car_class} 選配系統")
         
         if car_class in pricing_df.index:
             class_prices = pricing_df.loc[car_class].dropna()
             
-            # 顯示選配項目價格表
-            st.markdown("**可選項目清單：**")
-            price_table = pd.DataFrame({
-                "項目": class_prices.index,
-                "單價": class_prices.values
-            })
-            st.dataframe(
-                price_table,
-                column_config={"單價": st.column_config.NumberColumn(format="NT$ %d")},
-                hide_index=True,
-                use_container_width=True,
-                height=200
-            )
-            
-            # 選配選擇
+            # 動態選配 (移除價格表顯示)
             selected = []
             for i in range(1,6):
                 opt = st.selectbox(
@@ -117,10 +118,10 @@ if not filtered_df.empty and selected_model != '所有車型':
                 if opt != "(不選購)":
                     price = class_prices[opt]
                     selected.append((opt, price))
-                    # 顯示單價明細
+                    # 視覺化顯示已選項目
                     st.markdown(f"""
-                    <div class="price-detail">
-                        ✔️ 已選 {opt} - 單價 NT$ {price:,}
+                    <div class="selected-item">
+                        ✓ {opt} - NT$ {price:,}
                     </div>
                     """, unsafe_allow_html=True)
             
@@ -128,9 +129,9 @@ if not filtered_df.empty and selected_model != '所有車型':
             if selected:
                 total = sum(p for _, p in selected)
                 st.markdown(f"""
-                <div style="color:#e74c3c;font-size:24px;text-align:right;margin-top:2rem;">
-                    🧮 總計：NT$ {total:,}
+                <div class="total-price">
+                    🧾 總計：NT$ {total:,}
                 </div>
                 """, unsafe_allow_html=True)
     except Exception as e:
-        st.error(f"系統暫時無法提供選配服務，請稍後再試 ({str(e)})")
+        st.error(f"選配系統暫時無法使用 ({str(e)})")
