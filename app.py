@@ -2,130 +2,114 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-# 页面设定
+# 頁面設定
 st.set_page_config(
-    page_title="巧思镀膜管理系统",
+    page_title="巧思鍍膜管理系統",
     layout="wide",
     page_icon="⚡",
     initial_sidebar_state="expanded"
 )
 
-# 现代简约样式
-st.markdown("""
-<style>
-    [data-testid=stSidebar] {
-        background: #ffffff;
-        border-right: 1px solid #e0e0e0;
-        padding: 2rem;
-    }
-    .stSelectbox > div > div {
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px;
-    }
-    h3 {
-        color: #2d3436;
-        font-family: 'Helvetica Neue';
-        border-bottom: 2px solid #0984e3;
-        padding-bottom: 0.5rem;
-    }
-    .price-formula {
-        font-family: monospace;
-        margin: 1rem 0;
-        padding: 1rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-    }
-    .total-price {
-        color: #e74c3c;
-        font-size: 24px;
-        font-weight: 700;
-        text-align: right;
-        margin-top: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# 安全檢查函數
+def safe_get(df, column, default=None):
+    return df[column] if column in df.columns else default
 
+# 資料讀取強化錯誤處理
 @st.cache_data
 def load_data():
-    excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
-    df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
-    return df.dropna(subset=['品牌', '車型'])
+    try:
+        excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
+        df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
+        required_columns = ['品牌', '車型', '巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)']
+        return df.dropna(subset=required_columns)[required_columns]
+    except Exception as e:
+        st.error(f"資料載入失敗: {str(e)}")
+        return pd.DataFrame()
 
 @st.cache_data
-def get_pricing():
-    excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
-    df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
-    return df[['巧思分類'] + df.columns[10:28].tolist()].set_index('巧思分類')
+def load_pricing():
+    try:
+        excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
+        pricing_df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
+        option_cols = pricing_df.columns[10:28]
+        return pricing_df[['巧思分類'] + option_cols.tolist()].drop_duplicates().set_index('巧思分類')
+    except Exception as e:
+        st.error(f"價格表載入失敗: {str(e)}")
+        return pd.DataFrame()
 
+# 初始化資料
 df = load_data()
-pricing_df = get_pricing()
+pricing_df = load_pricing()
 
-# 侧边栏筛选
+# 側邊欄設計
 with st.sidebar:
-    st.markdown("### 车辆筛选")
+    st.markdown("### 🚗 車輛篩選系統")
     
-    # 品牌选择
-    brand = st.selectbox(
-        "选择品牌",
-        options=['所有品牌'] + sorted(df['品牌'].unique()),
-        index=0
-    )
+    # 品牌選擇安全檢查
+    all_brands = ['所有品牌'] + df['品牌'].unique().tolist()
+    selected_brand = st.selectbox("選擇品牌", all_brands)
     
-    # 动态车型选项
-    models = ['所有车型'] + sorted(
-        df[df['品牌'] == brand]['車型'].unique() if brand != '所有品牌' 
-        else df['車型'].unique()
-    )
-    model = st.selectbox("选择车型", models, index=0)
+    # 動態車型選項
+    if selected_brand == '所有品牌':
+        models = ['所有車型'] + df['車型'].unique().tolist()
+    else:
+        models = ['所有車型'] + df[df['品牌'] == selected_brand]['車型'].unique().tolist()
+    selected_model = st.selectbox("選擇車型", models)
 
-# 主界面
-st.markdown("### 车辆规格")
+# 主畫面
+st.markdown("### 📊 核心規格表")
 
-# 筛选逻辑
-filtered = df[
-    (df['品牌'] == brand if brand != '所有品牌' else True) &
-    (df['車型'] == model if model != '所有车型' else True)
-]
+# 安全篩選邏輯
+try:
+    brand_filter = df['品牌'] == selected_brand if selected_brand != '所有品牌' else pd.Series([True]*len(df))
+    model_filter = df['車型'] == selected_model if selected_model != '所有車型' else pd.Series([True]*len(df))
+    filtered_df = df[brand_filter & model_filter]
+except KeyError as e:
+    st.error(f"篩選錯誤: {str(e)}")
+    filtered_df = pd.DataFrame()
 
-# 核心规格显示
-if not filtered.empty:
+# 安全顯示表格
+if not filtered_df.empty:
     st.dataframe(
-        filtered[['巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)']],
-        height=250,  # 固定显示约5行高度
+        filtered_df[['巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)']],
+        height=250,
         use_container_width=True,
         hide_index=True
     )
 else:
-    st.warning("无匹配车辆")
+    st.warning("無符合條件車輛")
 
-# 选配系统
-if not filtered.empty and model != '所有车型':
-    st.markdown("---")
-    st.markdown("### 镀膜选配")
-    
-    classification = filtered.iloc[0]['巧思分類']
-    
-    if classification in pricing_df.index:
-        options = pricing_df.loc[classification].dropna()
+# --- 安全選配系統 ---
+if not filtered_df.empty and selected_model != '所有車型':
+    try:
+        car_class = filtered_df.iloc[0]['巧思分類']
         
-        selected = []
-        for i in range(1,6):
-            choice = st.selectbox(
-                f"选配项目 {i}",
-                options=["(空)"] + options.index.tolist(),
-                key=f"opt_{i}"
-            )
-            if choice != "(空)":
-                selected.append( (choice, options[choice]) )
+        st.markdown("---")
+        st.markdown(f"### 🛠️ {car_class} 專屬選配")
         
-        # 价格公式显示
-        if selected:
-            formula = " + ".join([f"({price})" for _, price in selected])
-            total = sum(price for _, price in selected)
+        if car_class in pricing_df.index:
+            class_prices = pricing_df.loc[car_class].dropna()
             
-            st.markdown("#### 价格计算")
-            st.markdown(f"""
-            <div class="price-formula">
-                {formula} = <span class="total-price">NT$ {total:,}</span>
-            </div>
-            """, unsafe_allow_html=True)
+            # 動態選配
+            selected = []
+            for i in range(1,6):
+                opt = st.selectbox(
+                    f"選配項目 {i}",
+                    ["(不選購)"] + class_prices.index.tolist(),
+                    key=f"opt_{i}"
+                )
+                if opt != "(不選購)":
+                    selected.append(class_prices[opt])
+            
+            # 安全價格計算
+            if selected:
+                total = sum(selected)
+                st.markdown(f"""
+                <div style="color:#e74c3c;font-size:24px;text-align:right;">
+                    選配總價：NT$ {total:,}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.warning("此分類無可用選配")
+    except KeyError as e:
+        st.error(f"選配系統錯誤: {str(e)}")
