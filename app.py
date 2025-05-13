@@ -118,3 +118,40 @@ st.markdown("""
 - **巧思分類**：車輛鍍膜難度分級 (A/B/C 級)  
 - **總價落點**：完整鍍膜服務價格區間 (含施工工時與材料費)
 """)
+# 在現有程式碼的「顯示結果表格」段落之後，加入以下內容：
+
+# --- 新增選配功能模組 ---
+if not filtered_df.empty:
+    st.markdown("---")
+    st.markdown("### 🛠️ 鍍膜選配加購系統")
+
+    # 讀取選配項目（K欄至AB欄）
+    optional_columns = df.columns[10:28].tolist()  # 請確認Excel欄位位置
+    
+    # 動態生成5個選配下拉選單
+    selected_options = []
+    for i in range(1, 6):
+        option = st.selectbox(
+            f"選配項目 {i}（可留空）",
+            options=["不選購"] + optional_columns,
+            key=f"option_{i}"
+        )
+        if option != "不選購":
+            selected_options.append(option)
+    
+    # 假設每個選配項目有對應價格（需替換為你的實際價格邏輯）
+    # 這裡示範用隨機價格，請替換為你的價格取得方式
+    import random
+    option_prices = {col: random.randint(1000, 5000) for col in optional_columns}
+    
+    # 計算總價
+    base_price = 25000  # 假設基本鍍膜價格
+    total_price = base_price + sum(option_prices.get(opt,0) for opt in selected_options)
+    
+    # 顯示價格
+    st.markdown(f"""
+    ### 💰 價格計算
+    - 基本鍍膜價格：NT$ {base_price:,}
+    - 選配項目總計：NT$ {sum(option_prices.get(opt,0) for opt in selected_options):,}
+    **最終總價**：NT$ **{total_price:,}**
+    """)
