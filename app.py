@@ -22,18 +22,19 @@ st.markdown("""
         border: 1px solid #4a4a4a;
         border-radius: 5px;
     }
-    .stMarkdown h3 {
-        color: #2c3e50;
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 0.3rem;
-    }
-    /* 新增價格顯示樣式 */
+    /* 加大紅色總價字體 */
     .price-total {
-        color: #ff0000;
+        color: #ff0000 !important;
         font-weight: bold;
         text-align: right;
         margin: 1rem 0;
         padding-right: 2rem;
+        font-size: 28px;  /* 從24px加大到28px */
+    }
+    /* 精簡表格高度 */
+    .stDataFrame {
+        max-height: 300px;  /* 顯示約5列高度 */
+        overflow-y: auto;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -45,9 +46,6 @@ def load_data():
     df = df.dropna(subset=['品牌', '車型'])
     return df
 
-df = load_data()
-
-# 選配欄位與價格對照表
 @st.cache_data
 def get_pricing_data():
     excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
@@ -55,20 +53,19 @@ def get_pricing_data():
     option_cols = pricing_df.columns[10:28]
     return option_cols, pricing_df[['巧思分類'] + option_cols.tolist()].drop_duplicates().set_index('巧思分類')
 
+df = load_data()
 option_cols, pricing_df = get_pricing_data()
 
 # 側邊欄設計
 with st.sidebar:
     st.markdown("### 🚗 鍍膜車輛篩選系統")
     
-    # 品牌篩選
     selected_brand = st.selectbox(
         "**步驟 1：選擇品牌**",
         options=['全部品牌'] + sorted(df['品牌'].unique().tolist()),
         index=0
     )
     
-    # 動態車型篩選
     if selected_brand == '全部品牌':
         model_options = ['全部車型'] + sorted(df['車型'].unique().tolist())
     else:
@@ -83,23 +80,15 @@ with st.sidebar:
 # 主畫面設計
 st.markdown("### 📊 車輛規格查詢結果")
 
-# 篩選邏輯與表格顯示
-if selected_brand == '全部品牌':
-    brand_filter = df['品牌'].notnull()
-else:
-    brand_filter = df['品牌'] == selected_brand
-
-if selected_model == '全部車型':
-    model_filter = df['車型'].notnull()
-else:
-    model_filter = df['車型'] == selected_model
-
+# 篩選與顯示
+brand_filter = df['品牌'].notnull() if selected_brand == '全部品牌' else df['品牌'] == selected_brand
+model_filter = df['車型'].notnull() if selected_model == '全部車型' else df['車型'] == selected_model
 filtered_df = df[brand_filter & model_filter]
 
-# 顯示精簡表格（只顯示4列，其他自動隱藏）
 if not filtered_df.empty:
+    # 精簡表格（固定顯示高度）
     st.dataframe(
-        filtered_df[["巧思分類", "車長(mm)", "車寬(mm)", "車高(mm)"]],  # 只顯示4個核心欄位
+        filtered_df[["巧思分類", "車長(mm)", "車寬(mm)", "車高(mm)"]],
         column_config={
             "車長(mm)": st.column_config.NumberColumn(format="%d mm"),
             "車寬(mm)": st.column_config.NumberColumn(format="%d mm"),
@@ -110,7 +99,7 @@ if not filtered_df.empty:
         hide_index=True
     )
 else:
-    st.warning("⚠️ 沒有找到符合條件的車輛，請調整篩選條件")
+    st.warning("⚠️ 沒有找到符合條件的車輛")
 
 # --- 選配功能模組 ---
 if not filtered_df.empty and selected_model != '全部車型':
@@ -122,6 +111,26 @@ if not filtered_df.empty and selected_model != '全部車型':
     if car_classification in pricing_df.index:
         class_prices = pricing_df.loc[car_classification].dropna()
         
+        # 顯示選配清單
+        st.markdown("#### 可選配項目與價格：")
+        price_list = pd.DataFrame({
+            "項目": class_prices.index,
+            "價格": class_prices.values
+        })
+        st.dataframe(
+            price_list,
+            column_config={
+                "價格": st.column_config.NumberColumn(
+                    format="NT$ %d",
+                    width="medium"
+                )
+            },
+            use_container_width=True,
+            height=200,
+            hide_index=True
+        )
+        
+        # 選配選擇
         selected_options = []
         for i in range(1, 6):
             option = st.selectbox(
@@ -132,7 +141,7 @@ if not filtered_df.empty and selected_model != '全部車型':
             if option != "不選購":
                 selected_options.append((option, class_prices[option]))
         
-        # 顯示價格總計（無背景色，紅色右側顯示）
+        # 顯示總價
         if selected_options:
             total = sum(price for _, price in selected_options)
             st.markdown(f"<div class='price-total'>選配總價：NT$ {total:,}</div>", unsafe_allow_html=True)
@@ -141,6 +150,7 @@ if not filtered_df.empty and selected_model != '全部車型':
 st.markdown("---")
 st.markdown("""
 **操作提示**  
-- 表格支援水平滾動查看完整資訊
+- 表格支援滾動查看完整資訊
+- 點擊表格標題可排序數據
 - 選配價格即時計算，紅色字體顯示於右側
 """)
