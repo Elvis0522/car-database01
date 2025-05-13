@@ -27,7 +27,7 @@ st.markdown("""
 def load_data():
     excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
     df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
-    required_cols = ['品牌', '車型', '巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']
+    required_cols = ['品牌', '類型', '車型', '巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']
     return df[required_cols].dropna(subset=required_cols)
 
 @st.cache_data
@@ -71,9 +71,9 @@ try:
     filtered_df = df[brand_filter & model_filter].head(5)
     
     if not filtered_df.empty:
-        # 顯示車型為第一欄
+        # 顯示類型為最左欄
         st.dataframe(
-            filtered_df[['車型', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
+            filtered_df[['類型', '車型', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
             height=300,
             use_container_width=True,
             hide_index=True
