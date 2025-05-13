@@ -10,24 +10,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 自訂樣式 (紅色總價強調)
+# 安全樣式設定 (無HTML)
 st.markdown("""
 <style>
-    [data-testid=stSidebar] {
-        background: #f8f9fa;
-        border-right: 2px solid #dee2e6;
-    }
-    .special-classification::before {
-        content: "🌟 ";
-        color: #f1c40f;
-        font-weight: 700;
-    }
     .total-price {
         color: #e74c3c !important;
         font-size: 32px;
         font-weight: 800;
         text-align: right;
-        padding: 1rem 3rem 1rem 0;
+        padding-right: 3rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -48,29 +39,27 @@ def load_pricing():
 df = load_data()
 pricing_df = load_pricing()
 
-# 巧思分類格式化函數
-def format_classification(x):
-    return f"🌟 {x}" if x == '0-巧思業務用' else x
-
-# 品牌排序處理
+# 品牌安全排序
 all_brands = df['品牌'].unique().tolist()
-sorted_brands = (
-    ['所有品牌'] + 
-    (['0-巧思業務用'] if '0-巧思業務用' in all_brands else []) + 
-    sorted([b for b in all_brands if b != '0-巧思業務用'])
+sorted_brands = ['所有品牌'] + sorted(
+    [b for b in all_brands if b != '0-巧思業務用'], 
+    key=lambda x: x.replace('0-巧思業務用', '')  # 特殊品牌置頂
 )
+if '0-巧思業務用' in all_brands:
+    sorted_brands.insert(1, '0-巧思業務用')
 
-# 側邊欄設計
+# 側邊欄設計 (完全兼容)
 with st.sidebar:
     st.markdown("### 🚗 車輛篩選系統")
     
+    # 品牌選擇 (純文字格式)
     selected_brand = st.selectbox(
         "選擇品牌",
         options=sorted_brands,
-        format_func=lambda x: format_classification(x),
-        unsafe_allow_html=True
+        index=1 if '0-巧思業務用' in sorted_brands else 0
     )
     
+    # 動態車型選項
     if selected_brand == '所有品牌':
         models = ['所有車型'] + sorted(df['車型'].unique().tolist())
     else:
@@ -78,36 +67,36 @@ with st.sidebar:
     
     selected_model = st.selectbox("選擇車型", models)
 
-# 主畫面核心規格表 (5欄5列)
+# 主畫面 (安全顯示)
 st.markdown("### 📊 車輛規格表")
 
 try:
     brand_filter = df['品牌'] == selected_brand if selected_brand != '所有品牌' else df['品牌'].notnull()
     model_filter = df['車型'] == selected_model if selected_model != '所有車型' else df['車型'].notnull()
-    filtered_df = df[brand_filter & model_filter].head(5)  # 固定顯示前5列
+    filtered_df = df[brand_filter & model_filter].head(5)
     
     if not filtered_df.empty:
+        # 動態添加🌟標記 (不影響實際數據)
+        display_df = filtered_df.copy()
+        display_df['品牌'] = display_df['品牌'].apply(
+            lambda x: f"🌟 {x}" if x == '0-巧思業務用' else x
+        )
+        
         st.dataframe(
-            filtered_df[['巧思分類', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
-            column_config={
-                "車長(mm)": st.column_config.NumberColumn(format="%d mm"),
-                "車寬(mm)": st.column_config.NumberColumn(format="%d mm"),
-                "車高(mm)": st.column_config.NumberColumn(format="%d mm"),
-                "總價落點": st.column_config.TextColumn("參考價格區間")
-            },
+            display_df[['品牌', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
             height=300,
             use_container_width=True,
             hide_index=True
         )
     else:
         st.warning("⚠️ 沒有找到符合條件的車輛")
-except KeyError as e:
-    st.error(f"資料欄位錯誤: {str(e)}")
+except Exception as e:
+    st.error(f"資料顯示錯誤: {str(e)}")
 
-# 選配系統 (紅色總價強調)
+# 選配系統 (安全計算)
 if not filtered_df.empty and selected_model != '所有車型':
     try:
-        car_class = filtered_df.iloc[0]['巧思分類'].replace('🌟 ', '')  # 移除標記
+        car_class = filtered_df.iloc[0]['巧思分類']
         
         st.markdown("---")
         st.markdown(f"### 🛠️ {car_class} 專屬選配")
@@ -124,10 +113,10 @@ if not filtered_df.empty and selected_model != '所有車型':
                 )
                 if opt != "(不選購)":
                     selected.append(class_prices[opt])
-                    st.markdown(f"<div class='selected-item'>✓ {opt} (NT$ {class_prices[opt]:,})</div>", unsafe_allow_html=True)
+                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,}")
             
             if selected:
                 total = sum(selected)
                 st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
     except Exception as e:
-        st.error(f"選配系統暫時無法使用：{str(e)}")
+        st.error(f"選配系統錯誤: {str(e)}")
