@@ -27,6 +27,12 @@ st.markdown("""
         border-bottom: 2px solid #3498db;
         padding-bottom: 0.3rem;
     }
+    .price-table {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -34,10 +40,26 @@ st.markdown("""
 def load_data():
     excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
     df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
-    df = df.dropna(subset=['品牌', '車型'])
+    df = df.dropna(subset=['品牌', '車型', '巧思分類', '總價落點'])
     return df
 
+@st.cache_data
+def load_price_data():
+    excel_path = Path(__file__).parent / "Qiao-Si-AutoJia-Mu-Biao.xlsx"
+    df = pd.read_excel(excel_path, sheet_name="工作表1", engine="openpyxl")
+    
+    # 建立價格映射表
+    optional_cols = df.columns[10:28].tolist()  # K到AB欄
+    price_mapping = df.set_index('巧思分類')[optional_cols].to_dict(orient='index')
+    
+    # 清理NaN值
+    for category in price_mapping:
+        price_mapping[category] = {k: v for k, v in price_mapping[category].items() if pd.notna(v)}
+    
+    return optional_cols, price_mapping
+
 df = load_data()
+optional_cols, price_mapping = load_price_data()
 
 # 側邊欄設計
 with st.sidebar:
@@ -111,6 +133,69 @@ if not filtered_df.empty:
 else:
     st.warning("⚠️ 沒有找到符合條件的車輛，請調整篩選條件")
 
+# --- 新增選配功能模組 ---
+if not filtered_df.empty:
+    st.markdown("---")
+    st.markdown("### 🛠️ 鍍膜選配加購系統")
+    
+    # 取得巧思分類
+    selected_classification = filtered_df.iloc[0]['巧思分類']
+    
+    # 顯示基本價格
+    base_price = int(filtered_df.iloc[0]['總價落點'].replace('NT$','').replace(',','').split('-')[0])
+    st.markdown(f"#### 基礎鍍膜方案：NT$ {base_price:,}")
+    
+    # 動態生成選配項目
+    selected_options = []
+    option_prices = {}
+    
+    # 顯示可選項目
+    if selected_classification in price_mapping:
+        available_options = price_mapping[selected_classification]
+        
+        # 顯示選配項目表格
+        st.markdown("##### 可選配項目清單：")
+        options_df = pd.DataFrame.from_dict(available_options, orient='index', columns=['價格'])
+        st.dataframe(
+            options_df,
+            column_config={
+                "價格": st.column_config.NumberColumn(
+                    format="NT$ %d",
+                    width="medium"
+                )
+            },
+            use_container_width=True,
+            height=200,
+            hide_index=False
+        )
+        
+        # 動態選擇
+        for i in range(1, 6):
+            option = st.selectbox(
+                f"選配項目 {i}（可留空）",
+                options=["不選購"] + list(available_options.keys()),
+                key=f"option_{i}"
+            )
+            if option != "不選購":
+                selected_options.append(option)
+                option_prices[option] = available_options[option]
+    
+    # 計算總價
+    total_price = base_price + sum(option_prices.values())
+    
+    # 顯示價格計算
+    st.markdown("### 💰 價格計算")
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown(f"""
+        <div class="price-table">
+            <p>基礎鍍膜：NT$ {base_price:,}</p>
+            {''.join([f'<p>+ {opt}：NT$ {price:,}</p>' for opt, price in option_prices.items()])}
+            <p><strong>總計：NT$ {total_price:,}</strong></p>
+        </div>
+        """, unsafe_allow_html=True)
+
 # 底部說明
 st.markdown("---")
 st.markdown("""
@@ -118,40 +203,3 @@ st.markdown("""
 - **巧思分類**：車輛鍍膜難度分級 (A/B/C 級)  
 - **總價落點**：完整鍍膜服務價格區間 (含施工工時與材料費)
 """)
-# 在現有程式碼的「顯示結果表格」段落之後，加入以下內容：
-
-# --- 新增選配功能模組 ---
-if not filtered_df.empty:
-    st.markdown("---")
-    st.markdown("### 🛠️ 鍍膜選配加購系統")
-
-    # 讀取選配項目（K欄至AB欄）
-    optional_columns = df.columns[10:28].tolist()  # 請確認Excel欄位位置
-    
-    # 動態生成5個選配下拉選單
-    selected_options = []
-    for i in range(1, 6):
-        option = st.selectbox(
-            f"選配項目 {i}（可留空）",
-            options=["不選購"] + optional_columns,
-            key=f"option_{i}"
-        )
-        if option != "不選購":
-            selected_options.append(option)
-    
-    # 假設每個選配項目有對應價格（需替換為你的實際價格邏輯）
-    # 這裡示範用隨機價格，請替換為你的價格取得方式
-    import random
-    option_prices = {col: random.randint(1000, 5000) for col in optional_columns}
-    
-    # 計算總價
-    base_price = 25000  # 假設基本鍍膜價格
-    total_price = base_price + sum(option_prices.get(opt,0) for opt in selected_options)
-    
-    # 顯示價格
-    st.markdown(f"""
-    ### 💰 價格計算
-    - 基本鍍膜價格：NT$ {base_price:,}
-    - 選配項目總計：NT$ {sum(option_prices.get(opt,0) for opt in selected_options):,}
-    **最終總價**：NT$ **{total_price:,}**
-    """)
