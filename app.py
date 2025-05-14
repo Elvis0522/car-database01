@@ -71,7 +71,6 @@ try:
     filtered_df = df[brand_filter & model_filter].head(5)
     
     if not filtered_df.empty:
-        # 顯示類型為最左欄
         st.dataframe(
             filtered_df[['類型', '車型', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
             height=300,
@@ -83,7 +82,7 @@ try:
 except Exception as e:
     st.error(f"資料顯示錯誤: {str(e)}")
 
-# 選配系統
+# 選配系統（支援數量選擇）
 if not filtered_df.empty and selected_model != '所有車型':
     try:
         car_class = filtered_df.iloc[0]['巧思分類']
@@ -93,16 +92,24 @@ if not filtered_df.empty and selected_model != '所有車型':
             class_prices = pricing_df.loc[car_class].dropna()
             selected = []
             for i in range(1,6):
-                opt = st.selectbox(
-                    f"選配項目 {i}",
-                    ["(不選購)"] + class_prices.index.tolist(),
-                    key=f"opt_{i}"
-                )
+                col1, col2 = st.columns([2,1])
+                with col1:
+                    opt = st.selectbox(
+                        f"選配項目 {i}",
+                        ["(不選購)"] + class_prices.index.tolist(),
+                        key=f"opt_{i}"
+                    )
                 if opt != "(不選購)":
-                    selected.append(class_prices[opt])
-                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,}")
+                    with col2:
+                        qty = st.selectbox(
+                            "數量",
+                            options=list(range(1, 11)),
+                            key=f"qty_{i}"
+                        )
+                    selected.append((opt, class_prices[opt], qty))
+                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,} × {qty} = NT$ {class_prices[opt]*qty:,}")
             if selected:
-                total = sum(selected)
+                total = sum(price*qty for _, price, qty in selected)
                 st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
     except Exception as e:
         st.error(f"選配系統錯誤: {str(e)}")
