@@ -11,25 +11,29 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 列印用CSS樣式
+# 強制列印直式、A4排版與隱藏按鈕
 st.markdown("""
 <style>
-    @media print {
-        .no-print, .stSidebar, button {
-            display: none !important;
-        }
-        body {
-            width: 210mm !important;
-            height: 297mm !important;
-        }
+@media print {
+    .no-print, .stSidebar, button {
+        display: none !important;
     }
-    .total-price {
-        color: #e74c3c !important;
-        font-size: 32px;
-        font-weight: 800;
-        text-align: right;
-        padding-right: 3rem;
+    body {
+        width: 210mm !important;
+        height: 297mm !important;
     }
+}
+@page {
+    size: A4 portrait;
+    margin: 20mm;
+}
+.total-price {
+    color: #e74c3c !important;
+    font-size: 32px;
+    font-weight: 800;
+    text-align: right;
+    padding-right: 3rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -125,4 +129,63 @@ except Exception as e:
 selected = []
 total = 0
 if not filtered_df.empty and selected_model != '所有車型':
-    try
+    try:
+        car_class = filtered_df.iloc[0]['巧思分類']
+        st.markdown("---")
+        st.markdown(f"### 🛠️ {car_class} 專屬選配")
+        if car_class in pricing_df.index:
+            class_prices = pricing_df.loc[car_class].dropna()
+            for i in range(1,6):
+                col1, col2 = st.columns([2,1])
+                with col1:
+                    opt = st.selectbox(
+                        f"選配項目 {i}",
+                        ["(不選購)"] + class_prices.index.tolist(),
+                        key=f"opt_{i}"
+                    )
+                if opt != "(不選購)":
+                    with col2:
+                        qty = st.selectbox(
+                            "數量",
+                            options=list(range(1, 11)),
+                            key=f"qty_{i}"
+                        )
+                    selected.append((opt, class_prices[opt], qty))
+                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,} × {qty} = NT$ {class_prices[opt]*qty:,}")
+            if selected:
+                total = sum(price*qty for _, price, qty in selected)
+                st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"選配系統錯誤: {str(e)}")
+
+# --- 報價單按鈕 ---
+def all_form_filled(form_data):
+    return all([
+        form_data.get('name', '').strip(),
+        form_data.get('plate', '').strip(),
+        form_data.get('model', '').strip(),
+        form_data.get('year', '').strip(),
+        form_data.get('phone', '').strip(),
+        form_data.get('email', '').strip()
+    ])
+
+if (
+    selected_brand != '所有品牌'
+    and selected_model != '所有車型'
+    and all_form_filled(form_data)
+    and selected
+    and total > 0
+):
+    st.markdown("---")
+    filename = f"{form_data['name']}_{form_data['plate']}".replace(" ", "_")
+    # 這裡直接插入JS，讓使用者點擊後觸發列印
+    print_button = st.button("📄 產生報價單", use_container_width=True, type="primary")
+    if print_button:
+        st.markdown(f"""
+        <script>
+        document.title = "{filename}";
+        window.print();
+        </script>
+        """, unsafe_allow_html=True)
+    st.caption("點擊後將彈出瀏覽器列印視窗，請選擇『另存為PDF』，系統會自動建議檔名與直式排版。")
+
