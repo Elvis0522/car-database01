@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+from datetime import date
 
 # 頁面設定
 st.set_page_config(
@@ -63,6 +64,41 @@ with st.sidebar:
     selected_model = st.selectbox("選擇車型", models)
 
 # 主畫面
+# --- 新增：客戶資料表單 ---
+if (
+    selected_brand != '所有品牌'
+    and selected_model != '所有車型'
+    and not df[
+        (df['品牌'] == selected_brand) & (df['車型'] == selected_model)
+    ].empty
+):
+    st.markdown("#### 🚩 客戶資料表單")
+    with st.form("customer_form"):
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            today = date.today()
+            form_date = st.date_input("日期", value=today, disabled=True)
+        with col2:
+            name = st.text_input("姓名")
+        with col3:
+            title = st.selectbox("稱謂", options=["先生", "小姐"], index=0, disabled=True)
+        with col4:
+            plate = st.text_input("車牌號碼")
+        col5, col6 = st.columns(2)
+        with col5:
+            st.text_input("車型", value=selected_model, disabled=True)
+        with col6:
+            year = st.text_input("年份")
+        col7, col8 = st.columns(2)
+        with col7:
+            phone = st.text_input("電話")
+        with col8:
+            email = st.text_input("E-mail")
+        submitted = st.form_submit_button("送出")
+        if submitted:
+            st.success("資料已送出！")
+            # 這裡可進一步儲存或處理資料
+
 st.markdown("### 📊 車輛規格表")
 
 try:
@@ -82,7 +118,7 @@ try:
 except Exception as e:
     st.error(f"資料顯示錯誤: {str(e)}")
 
-# 選配系統（支援數量選擇）
+# 選配系統（含數量選擇）
 if not filtered_df.empty and selected_model != '所有車型':
     try:
         car_class = filtered_df.iloc[0]['巧思分類']
