@@ -11,29 +11,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 強制列印直式、A4排版與隱藏按鈕
+# 樣式設定
 st.markdown("""
 <style>
-@media print {
-    .no-print, .stSidebar, button {
-        display: none !important;
+    .total-price {
+        color: #e74c3c !important;
+        font-size: 32px;
+        font-weight: 800;
+        text-align: right;
+        padding-right: 3rem;
     }
-    body {
-        width: 210mm !important;
-        height: 297mm !important;
-    }
-}
-@page {
-    size: A4 portrait;
-    margin: 20mm;
-}
-.total-price {
-    color: #e74c3c !important;
-    font-size: 32px;
-    font-weight: 800;
-    text-align: right;
-    padding-right: 3rem;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -90,21 +77,21 @@ if (
     with col1:
         form_data['date'] = st.date_input("日期", value=date.today(), disabled=True)
     with col2:
-        form_data['name'] = st.text_input("姓名", key='form_name')
+        form_data['name'] = st.text_input("姓名")
     with col3:
-        form_data['title'] = st.selectbox("稱謂", options=["先生", "小姐"], index=0, disabled=True)
+        form_data['title'] = st.selectbox("稱謂", options=["先生", "小姐"], index=0)  # 可選
     with col4:
-        form_data['plate'] = st.text_input("車牌號碼", key='form_plate')
+        form_data['plate'] = st.text_input("車牌號碼")
     col5, col6 = st.columns(2)
     with col5:
-        form_data['model'] = st.text_input("型號", key='form_model')
+        form_data['model'] = st.text_input("型號")
     with col6:
-        form_data['year'] = st.text_input("年份", key='form_year')
+        form_data['year'] = st.text_input("年份")
     col7, col8 = st.columns(2)
     with col7:
-        form_data['phone'] = st.text_input("電話", key='form_phone')
+        form_data['phone'] = st.text_input("電話")
     with col8:
-        form_data['email'] = st.text_input("E-mail", key='form_email')
+        form_data['email'] = st.text_input("E-mail")
 
 st.markdown("### 📊 車輛規格表")
 
@@ -157,35 +144,3 @@ if not filtered_df.empty and selected_model != '所有車型':
                 st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
     except Exception as e:
         st.error(f"選配系統錯誤: {str(e)}")
-
-# --- 報價單按鈕 ---
-def all_form_filled(form_data):
-    return all([
-        form_data.get('name', '').strip(),
-        form_data.get('plate', '').strip(),
-        form_data.get('model', '').strip(),
-        form_data.get('year', '').strip(),
-        form_data.get('phone', '').strip(),
-        form_data.get('email', '').strip()
-    ])
-
-if (
-    selected_brand != '所有品牌'
-    and selected_model != '所有車型'
-    and all_form_filled(form_data)
-    and selected
-    and total > 0
-):
-    st.markdown("---")
-    filename = f"{form_data['name']}_{form_data['plate']}".replace(" ", "_")
-    # 這裡直接插入JS，讓使用者點擊後觸發列印
-    print_button = st.button("📄 產生報價單", use_container_width=True, type="primary")
-    if print_button:
-        st.markdown(f"""
-        <script>
-        document.title = "{filename}";
-        window.print();
-        </script>
-        """, unsafe_allow_html=True)
-    st.caption("點擊後將彈出瀏覽器列印視窗，請選擇『另存為PDF』，系統會自動建議檔名與直式排版。")
-
