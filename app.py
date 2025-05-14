@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 列印用CSS樣式 (隱藏不需要的元素)
+# 列印用CSS樣式
 st.markdown("""
 <style>
     @media print {
@@ -73,7 +73,6 @@ with st.sidebar:
     selected_model = st.selectbox("選擇車型", models)
 
 # 主畫面
-# --- 客戶資料表單 ---
 form_data = {}
 if (
     selected_brand != '所有品牌'
@@ -103,26 +102,80 @@ if (
     with col8:
         form_data['email'] = st.text_input("E-mail")
 
-# --- 車輛規格表與選配系統 (維持Seed02原有程式碼) ---
-# ... [保持Seed02原有程式碼不變] ...
+st.markdown("### 📊 車輛規格表")
 
-# --- 新增：報價單生成條件檢查與按鈕 ---
+try:
+    brand_filter = df['品牌'] == selected_brand if selected_brand != '所有品牌' else df['品牌'].notnull()
+    model_filter = df['車型'] == selected_model if selected_model != '所有車型' else df['車型'].notnull()
+    filtered_df = df[brand_filter & model_filter].head(5)
+    
+    if not filtered_df.empty:
+        st.dataframe(
+            filtered_df[['類型', '車型', '車長(mm)', '車寬(mm)', '車高(mm)', '總價落點']],
+            height=300,
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.warning("⚠️ 沒有找到符合條件的車輛")
+except Exception as e:
+    st.error(f"資料顯示錯誤: {str(e)}")
+
+# 選配系統（含數量選擇）
+selected = []
+total = 0
+if not filtered_df.empty and selected_model != '所有車型':
+    try:
+        car_class = filtered_df.iloc[0]['巧思分類']
+        st.markdown("---")
+        st.markdown(f"### 🛠️ {car_class} 專屬選配")
+        if car_class in pricing_df.index:
+            class_prices = pricing_df.loc[car_class].dropna()
+            for i in range(1,6):
+                col1, col2 = st.columns([2,1])
+                with col1:
+                    opt = st.selectbox(
+                        f"選配項目 {i}",
+                        ["(不選購)"] + class_prices.index.tolist(),
+                        key=f"opt_{i}"
+                    )
+                if opt != "(不選購)":
+                    with col2:
+                        qty = st.selectbox(
+                            "數量",
+                            options=list(range(1, 11)),
+                            key=f"qty_{i}"
+                        )
+                    selected.append((opt, class_prices[opt], qty))
+                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,} × {qty} = NT$ {class_prices[opt]*qty:,}")
+            if selected:
+                total = sum(price*qty for _, price, qty in selected)
+                st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"選配系統錯誤: {str(e)}")
+
+# --- 報價單按鈕顯示條件 ---
+def all_form_filled(form_data):
+    # 日期、稱謂預設有值，其餘需填寫
+    return all(form_data.get(k, '').strip() for k in ['name','plate','model','year','phone','email'])
+
 if (
     selected_brand != '所有品牌'
     and selected_model != '所有車型'
-    and all(form_data.values())  # 確認所有表單欄位已填寫
-    and 'selected' in locals()   # 確認有選購項目
-    and total > 0                # 確認有顯示金額
+    and all_form_filled(form_data)
+    and selected
+    and total > 0
 ):
-    # 生成PDF的JavaScript代碼
-    js_code = f"""
-    <script>
-        function triggerPrint() {{
+    st.markdown("---")
+    if st.button("📄 產生報價單", use_container_width=True, type="primary"):
+        # 產生PDF的JS
+        filename = f"{form_data['name']}_{form_data['plate']}".replace(" ", "")
+        js_code = f"""
+        <script>
+            document.title = "{filename}";
             window.print();
-        }}
-        document.title = "{form_data['name']}_{form_data['plate']}";
-        setTimeout(triggerPrint, 500);
-    </script>
-    """
-    st.markdown(js_code, unsafe_allow_html=True)
-    st.button("📄 產生報價單", use_container_width=True, type='primary")
+        </script>
+        """
+        st.markdown(js_code, unsafe_allow_html=True)
+    st.caption("點擊後可用瀏覽器另存PDF，檔名自動為「姓名_車牌號碼」")
+
