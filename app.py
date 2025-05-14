@@ -73,31 +73,27 @@ if (
     ].empty
 ):
     st.markdown("#### 🚩 客戶資料表單")
-    with st.form("customer_form"):
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            today = date.today()
-            form_date = st.date_input("日期", value=today, disabled=True)
-        with col2:
-            name = st.text_input("姓名")
-        with col3:
-            title = st.selectbox("稱謂", options=["先生", "小姐"], index=0, disabled=True)
-        with col4:
-            plate = st.text_input("車牌號碼")
-        col5, col6 = st.columns(2)
-        with col5:
-            st.text_input("車型", value=selected_model, disabled=True)
-        with col6:
-            year = st.text_input("年份")
-        col7, col8 = st.columns(2)
-        with col7:
-            phone = st.text_input("電話")
-        with col8:
-            email = st.text_input("E-mail")
-        submitted = st.form_submit_button("送出")
-        if submitted:
-            st.success("資料已送出！")
-            # 這裡可進一步儲存或處理資料
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        today = date.today()
+        form_date = st.date_input("日期", value=today, disabled=True)
+    with col2:
+        name = st.text_input("姓名")
+    with col3:
+        title = st.selectbox("稱謂", options=["先生", "小姐"], index=0, disabled=True)
+    with col4:
+        plate = st.text_input("車牌號碼")
+    col5, col6 = st.columns(2)
+    with col5:
+        model_input = st.text_input("型號")  # 可自行輸入
+    with col6:
+        year = st.text_input("年份")
+    col7, col8 = st.columns(2)
+    with col7:
+        phone = st.text_input("電話")
+    with col8:
+        email = st.text_input("E-mail")
+    # 送出按鈕已移除
 
 st.markdown("### 📊 車輛規格表")
 
