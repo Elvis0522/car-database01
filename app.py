@@ -86,21 +86,21 @@ if (
     with col1:
         form_data['date'] = st.date_input("日期", value=date.today(), disabled=True)
     with col2:
-        form_data['name'] = st.text_input("姓名")
+        form_data['name'] = st.text_input("姓名", key='form_name')
     with col3:
         form_data['title'] = st.selectbox("稱謂", options=["先生", "小姐"], index=0, disabled=True)
     with col4:
-        form_data['plate'] = st.text_input("車牌號碼")
+        form_data['plate'] = st.text_input("車牌號碼", key='form_plate')
     col5, col6 = st.columns(2)
     with col5:
-        form_data['model'] = st.text_input("型號")
+        form_data['model'] = st.text_input("型號", key='form_model')
     with col6:
-        form_data['year'] = st.text_input("年份")
+        form_data['year'] = st.text_input("年份", key='form_year')
     col7, col8 = st.columns(2)
     with col7:
-        form_data['phone'] = st.text_input("電話")
+        form_data['phone'] = st.text_input("電話", key='form_phone')
     with col8:
-        form_data['email'] = st.text_input("E-mail")
+        form_data['email'] = st.text_input("E-mail", key='form_email')
 
 st.markdown("### 📊 車輛規格表")
 
@@ -125,57 +125,4 @@ except Exception as e:
 selected = []
 total = 0
 if not filtered_df.empty and selected_model != '所有車型':
-    try:
-        car_class = filtered_df.iloc[0]['巧思分類']
-        st.markdown("---")
-        st.markdown(f"### 🛠️ {car_class} 專屬選配")
-        if car_class in pricing_df.index:
-            class_prices = pricing_df.loc[car_class].dropna()
-            for i in range(1,6):
-                col1, col2 = st.columns([2,1])
-                with col1:
-                    opt = st.selectbox(
-                        f"選配項目 {i}",
-                        ["(不選購)"] + class_prices.index.tolist(),
-                        key=f"opt_{i}"
-                    )
-                if opt != "(不選購)":
-                    with col2:
-                        qty = st.selectbox(
-                            "數量",
-                            options=list(range(1, 11)),
-                            key=f"qty_{i}"
-                        )
-                    selected.append((opt, class_prices[opt], qty))
-                    st.markdown(f"✓ **{opt}** - NT$ {class_prices[opt]:,} × {qty} = NT$ {class_prices[opt]*qty:,}")
-            if selected:
-                total = sum(price*qty for _, price, qty in selected)
-                st.markdown(f"<div class='total-price'>總計：NT$ {total:,}</div>", unsafe_allow_html=True)
-    except Exception as e:
-        st.error(f"選配系統錯誤: {str(e)}")
-
-# --- 報價單按鈕顯示條件 ---
-def all_form_filled(form_data):
-    # 日期、稱謂預設有值，其餘需填寫
-    return all(form_data.get(k, '').strip() for k in ['name','plate','model','year','phone','email'])
-
-if (
-    selected_brand != '所有品牌'
-    and selected_model != '所有車型'
-    and all_form_filled(form_data)
-    and selected
-    and total > 0
-):
-    st.markdown("---")
-    if st.button("📄 產生報價單", use_container_width=True, type="primary"):
-        # 產生PDF的JS
-        filename = f"{form_data['name']}_{form_data['plate']}".replace(" ", "")
-        js_code = f"""
-        <script>
-            document.title = "{filename}";
-            window.print();
-        </script>
-        """
-        st.markdown(js_code, unsafe_allow_html=True)
-    st.caption("點擊後可用瀏覽器另存PDF，檔名自動為「姓名_車牌號碼」")
-
+    try
